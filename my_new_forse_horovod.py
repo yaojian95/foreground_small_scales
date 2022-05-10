@@ -11,9 +11,9 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import losses
 import numpy as np
 import os
-from tensorflow.keras import backend as K
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # to avoid printing lots of info of GPU
 
-import threading
+import re
 from datetime import datetime
 import time
 
@@ -21,7 +21,7 @@ import horovod
 import horovod.tensorflow as hvd
 
 
-dirs = '/pscratch/sd/j/jianyao/forse_output/3_arcmin_8000_models_MY_lr_5e-5_squeue/'
+dirs = '/pscratch/sd/j/jianyao/forse_output/3_arcmin_8000_models_MY_lr_5e-5_partT_1/'
 img_shape = (320, 320, 1); kernel_size = 5; cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True); channels = 1;
 def build_generator():
     
@@ -100,7 +100,14 @@ if hvd.rank() == 0:
         
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer, discriminator_optimizer=discriminator_optimizer, generator=generator, discriminator=discriminator)
-    
+
+### recover from the latest training epoch 
+latest = tf.train.latest_checkpoint(checkpoint_dir);
+if latest is not None:
+    epoch_latest = np.int(re.findall(r'\d+', latest)[-1])*500
+    print('restore from checkpoint:%s'% latest)
+    checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+
 @tf.function
 def train_step(noise, images, first_epoch):
     # noise = tf.random.normal([BATCH_SIZE, noise_dim])
@@ -132,15 +139,20 @@ def train_step(noise, images, first_epoch):
 def train(output_directory, epochs, patches_file, batch_size=32, save_interval=100, seed=4324):
     start = time.time()
     
-    X_train, X_test, Y_train, Y_test = load_training_set(patches_file, seed=seed); # X-input large scales; Y-real small scales
+    X_train, X_test, Y_train, Y_test = load_training_set(patches_file, part_train = 1, part_test = 0, seed=seed); # X-input large scales; Y-real small scales
     print("Training Data Shape: ", X_train.shape)
     half_batch = batch_size // 2
     accs = []
     
+    if latest:
+        epochs_range = range(epoch_latest, epochs)
+        np.random.randint(0, X_train.shape[0], 48*(epoch_latest)) #To let the random start from lastest state, not the 0-state
+    else:
+        epochs_range = range(epochs)
     
-    for epoch in range(epochs):
+    for epoch in epochs_range:
         now = time.time()
-
+        
         ind_batch = np.random.randint(0, X_train.shape[0], batch_size)
 
         idxX = np.random.randint(0, X_train.shape[0], half_batch)
@@ -148,7 +160,9 @@ def train(output_directory, epochs, patches_file, batch_size=32, save_interval=1
 
         train_step(X_train[ind_batch], Y_train[idxY], epoch == 0)
         
-        if hvd.rank() == 0:  
+        if hvd.rank() == 0:
+            if epoch < 10:
+                print(ind_batch)
             if (epoch + 1) % save_interval == 0:
                 checkpoint.save(file_prefix = checkpoint_prefix)
                 message = 'You are at epoch %s ! Time cost is %0.2f mins! ETA: %0.2f hours!'%(epoch, (now-start)/60, (epochs - epoch)*(now-start)/60/60/epoch)
@@ -160,4 +174,4 @@ def train(output_directory, epochs, patches_file, batch_size=32, save_interval=1
 
 patch_file = '/pscratch/sd/j/jianyao/forse_output/training_data_3amin.npy'
 
-train(output_directory= dirs, epochs=100001, patches_file=patch_file, batch_size=48, save_interval=500)
+train(output_directory= dirs, epochs=200001, patches_file=patch_file, batch_size=48, save_interval=500)
