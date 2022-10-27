@@ -1,1 +1,2 @@
-
+.. autosummary::
+   :toctree: generated
