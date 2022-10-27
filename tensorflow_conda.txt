@@ -1,0 +1,17 @@
+module load cgpu
+module load cuda/10.1.243
+module gcc/7.3.0
+
+conda create -p /global/cscratch1/sd/jianyao/myTF python=3.8 ipykernel
+conda activate /global/cscratch1/sd/jianyao/myTF
+
+https://www.tensorflow.org/install/source#gpu
+conda search tensorflow
+
+conda install tensorflow=2.2.0=gpu_py38hb782248_0
+conda install -c conda-forge namaster
+conda install -c conda-forge healpy
+conda install -c astropy reproject
+
+
+python -m ipykernel install --user --name Conda_TF_GPU --display-name Conda_TF_GPU

@@ -1,0 +1,36 @@
+module load cgpu
+
+module load tensorflow/gpu-2.2.0-py37
+module load gsl/2.5
+module load cray-fftw
+export FFTW_DIR=/opt/cray/pe/fftw/3.3.8.4/haswell
+export CFITSIO_DIR="/usr/common/software/cfitsio/3.47"
+export LDFLAGS+=" -L$GSL_DIR/lib -L$CFITSIO_DIR/lib -L/$FFTW_DIR/lib"
+export CPPFLAGS+=" -I$GSL_DIR/include -I$CFITSIO_DIR/include -I$FFTW_DIR/include"
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GSL_DIR/lib:$CFITSIO_DIR/lib:$FFTW_DIR/lib
+export CC=cc
+export CRAYPE_LINK_TYPE=dynamic
+export XTPE_LINK_TYPE=dynamic
+LDSHARED="cc -shared" CC=cc python -m pip install pymaster --user
+
+pip install reproject --user
+pip install healpy --user
+
+python -m ipykernel install --user --name myTF_GPU --display-name myTF_GPU
+
+{
+ "argv": [
+  "/usr/common/software/tensorflow/gpu-tensorflow/2.2.0-py37/bin/python",
+  "-m",
+  "ipykernel_launcher",
+  "-f",
+  "{connection_file}"
+ ],
+ "display_name": "myTF_GPU",
+ "language": "python",
+ "env": {
+   "PYTHONPATH": "/global/homes/j/jianyao/.local/cori/gpu-tensorflow2.2.0-py37/lib/python3.7/site-packages/",
+   "LD_LIBRARY_PATH":
+            "/global/common/sw/cray/cnl7/haswell/gsl/2.5/intel/19.0.3.199/7twqxxq/lib:/usr/common/software/cfitsio/3.47/lib:/opt/cray/pe/fftw/3.3.8.4/haswell/lib:/opt/intel/compilers_and_libraries_2020.2.254/linux/compiler/lib/intel64"
+ }
+}

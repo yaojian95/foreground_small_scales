@@ -1,0 +1,14 @@
+# ls with color
+vim ~/.bashrc
+alias ls='ls --color=auto'
+
+# arrow with history
+vim ~/.inputrc 
+
+# Respect default shortcuts.
+$include /etc/inputrc
+
+## arrow up
+"\e[A":history-search-backward
+## arrow down
+"\e[B":history-search-forward
