@@ -1,4 +1,3 @@
 .. autosummary::
    :toctree: generated
-
-pipeline_evaluation_NN
+   pipeline_evaluation_NN
