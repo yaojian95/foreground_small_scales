@@ -4,15 +4,16 @@ import healpy as hp
 import pymaster as nmt
 
 
-### load output (small scales only at 3amin) from the neural network 
-# :shape: (174*49, 320, 320)
+### load output (small scales only at 12amin) from the neural network 
+# :shape: (174, 320, 320)
 
 class post_training(object):
+    '''
+    All processes after the training.
+    training_files_Q/U; input training files for the NN, shape:(2, 348, 320, 320)
+    '''
     
     def __init__(self, NNout_Q, NNout_U, training_files_Q, training_file_U, MF = True):
-        '''
-        training_files_Q/U; input training files for the NN, shape:(2, 348, 320, 320)
-        '''
         
         self.NNout_Q = NNout_Q;
         self.NNout_U = NNout_U;
@@ -28,14 +29,14 @@ class post_training(object):
         '''
         Normalize the small scales w.r.t. Gaussian case in the map level;
         
-        Parameters
-        -----------------------------------------------------------------
+        :param 
+        
         maps_out_12Q/U: small scales generated from the Neural Network. With shape: (174, 320, 320);
         gauss_ss_mean_std: mean and std for each patch of small scales of Gaussian realization, defined by the ratio: 
         Gaussian_maps_12amin/Gaussian_maps_80amin; 4 in 1: Q_mean, Q_std, U_mean, U_std. With shape (4, 174).
         
         Returns
-        -------
+        
         normalized maps.
 
         '''
@@ -49,18 +50,17 @@ class post_training(object):
     
         return NNout_normed_Q, NNout_normed_U
 
-    def normalization(self, gauss_ss_ps, gauss_ss_mean_std, Ls_Q, Ls_U, lmin = 40*14, lmax = 3500):
+    def normalization(self, gauss_ss_ps, gauss_ss_mean_std, Ls_Q, Ls_U, mask_path = 'mask_320*320.npy', lmin = 40*14, lmax = 3500):
         '''
         Normalize the small scales w.r.t. Gaussian case in the power spectra level and multiply with the large scales to get a full-resolution maps, after the first normalization.
         
-        Parameters
-        ----------
+        :param
+        
         maps_out_12Q/U: small scales after the first normalization; With shape: (174, 320, 320);
         gauss_ss_ps: power spectra for each patch of small scales of Gaussian realization; 2 in 1: cl_QQ and cl_UU; with shape: (2, 174, 1, 25).
         Ls_Q/U: large scales, same as the input for the training; with shape (348,320,320).
         
         Returns
-        -------
         
         patches of full resolution maps with physical units.
         '''
@@ -69,7 +69,7 @@ class post_training(object):
         Lx = np.radians(20.); Ly = np.radians(20.)
         Nx = 320; Ny = 320
 
-        mask = np.load('mask_320*320.npy')
+        mask = np.load(mask_path)
 
         l0_bins = np.arange(20, lmax, 40)
         lf_bins = np.arange(20, lmax, 40)+39
@@ -109,7 +109,7 @@ class post_training(object):
         for nn output at 12amin, npatches = 174; for intensity small scales, npatch = 174;
         
         Returns
-        -------
+
         rhos: threshold values, normally [-1, 1]
         f, u, chi : three kinds of MFs for each patch
         
@@ -162,41 +162,125 @@ class post_training(object):
             plt.savefig(savedir, format = 'pdf')
 
     
-    def visualization(self, maps_out_12, n):
+    def visualization(self, stokes, n):
     
         '''
-        map visualization; maps at 20 amin; output from NN; renormalize the NN output and combine with the large scales
-        m: sky_position. 0-174
-        n: patch_position in the 7*7 square
+        map visualization; maps at 80 amin; ss_only output from NN; renormalize the NN output and combine with the large scales
+        n: patch_position 
+        
+        needs to set the color scale fixed
         '''
         
-        '''  needs to be fixed  '''
-        fig, axes = plt.subplots(5, 3, figsize = (20, 28))
-
-        for l in range(5):
-            axes[l][0].imshow(self.Ls[n+l])
-            axes[l][1].imshow(maps_out_12[n+l])
-            axes[l][2].imshow(NNmap_corr[n+l])
+        fig, axes = plt.subplots(3, 3, figsize = (12, 14))
         
-        pass
-    
+        Qmaps = [self.Ls_Q[n], self.NNout_Q[n], self.NNmapQ_corr[n]];
+        Umaps = [self.Ls_U[n], self.NNout_U[n], self.NNmapU_corr[n]];
+        Pmaps = [np.sqrt(Qmaps[0]**2 + Umaps[0]**2), np.sqrt(Qmaps[1]**2 + Umaps[1]**2), np.sqrt(Qmaps[2]**2 + Umaps[2]**2)];
+            
+        for j in range(3):
+            axes[0][j].imshow(Qmaps[j])
+            axes[1][j].imshow(Umaps[j])
+            axes[2][j].imshow(Pmaps[j])
     
     def reproject_to_fullsky(self, ):
         
+        '''
         salloc --nodes 4 --qos interactive --time 00:30:00 --constraint cpu --account=mp107
         module load tensorflow/2.6.0
         srun -n 16 python reproject2fullsky_mpi.py --pixelsize 3.75 --npix 320 --overlap 2   --verbose  --flat-projection /pscratch/sd/j/jianyao/forse_processed_data/NN_out_Q_12amin_physical_units_from_real_Nico.npy --flat2hpx --nside 2048 --apodization-file /global/homes/j/jianyao/Small_Scale_Foreground/mask_320*320.npy --adaptive-reprojection
         
         srun -n 16 python reproject2fullsky_mpi.py --pixelsize 0.9375 --npix 1280 --overlap 2   --verbose  --flat-projection  /pscratch/sd/j/jianyao/forse_output/Nico_Q_20amin_20x20_1280.npy --flat2hpx --nside 4096 --apodization-file /global/homes/j/jianyao/Small_Scale_Foreground/mask_1280*1280.npy --adaptive-reprojection
         
-        pass
-    
-    def power_spectra_patch(self, ):
+        '''
         
         pass
     
-    def power_spectra_full_sky(self, ):
+    def power_spectra_patch(self, n, w22_file = "w22_flat_320_320.fits", mask_path = 'mask_320*320.npy'):
+        
+        '''
+        plot EE/BB power spectra for each flat patch of sky. For Large scales only, Large scales with gaussian small scales; 
+        Large scales with ForSE small scales. 
+        '''
+        
+        Lx = np.radians(20.); Ly = np.radians(20.)
+        Nx = 320; Ny = 320
+
+        gaussian_path_Q ='/global/cfs/cdirs/sobs/www/users/ForSE/NN_datautils/datasets/GNILC_gaussian_ss_Q_20x20deg_Npix320_full_sky_adaptive.npy'
+        gaussian_path_U ='/global/cfs/cdirs/sobs/www/users/ForSE/NN_datautils/datasets/GNILC_gaussian_ss_U_20x20deg_Npix320_full_sky_adaptive.npy'
+        
+        gaussian_mapsQ = np.load(gaussian_pathQ, allow_pickle = True)*1e6
+        gaussian_mapsU = np.load(gaussian_pathU, allow_pickle = True)*1e6
+        
+        mask = np.load(mask_path)
+        l0_bins = np.arange(20, lmax, 40); lf_bins = np.arange(20, lmax, 40)+39
+        b = nmt.NmtBinFlat(l0_bins, lf_bins)
+        ells_uncoupled = b.get_effective_ells()
+        
+        w22 = nmt.NmtWorkspaceFlat()
+        try:
+            w22.read_from(w22_file)
+            print('weights loaded from %s' % w22_file)
+        except:
+            
+            f_2 = nmt.NmtFieldFlat(Lx, Ly, mask, [np.zeros((320, 320)), np.zeros((320, 320))], purify_b=True)
+            w22.compute_coupling_matrix(f2, f2, b)
+            w22.write_to(w22_file)
+            print('weights writing to disk')
+        
+        Qmaps = [self.Ls_Q[n], gaussian_mapsQ[n], self.NNmapQ_corr[n]];
+        Umaps = [self.Ls_U[n], gaussian_mapsU[n], self.NNmapU_corr[n]];
+        
+        cls_all = []
+        for i in range(3):
+
+            f_NN = nmt.NmtFieldFlat(Lx, Ly, mask, [Qmaps[i], Umaps[i]], purify_b=True)
+            cl_NN_coupled = nmt.compute_coupled_cell_flat(f_NN, f_NN, b)
+            cl_NN_uncoupled = w22.decouple_cell(cl_NN_coupled)
+            cls_all.append(cl_NN_uncoupled)        
+    
+        fig, axes = plt.subplots(1,2, figsize=(13, 4.5))                  
+        names = ['EE', 'BB']
+        for j in range(2):
+            axes[i].loglog(ells_uncoupled, cls_all[0][i*3],  '--', lw=2, color='Black', alpha=0.5, label = 'GNILC 80 amin')
+            axes[i].loglog(ells_uncoupled, cls_all[1][i*3], '-', label='GNILC+Gauss 12 amin', lw=4, color='#569A62', alpha=0.7)
+            axes[i].loglog(ells_uncoupled, cls_all[2][i*3], '-', label='GNILC+NN 12 amin', lw=4, color='#F87217', alpha=0.7)
+            axes[i].set_ylim(1e-6, 2e-1)
+            axes[i].set_xticks([40, 100, 400, 1000], [40, 100, 400, 1000])
+            axes[i].set_tick_params(axis='both', which='major', labelsize=18)
+            axes[i].set_title('%s'%names[j], fontsize=18)
+            axes[i].set_xlabel(r'Multipole $\ell$', fontsize=18)
+            axes[i].set_ylabel(r'$C_\ell$ [$\mu K^2$]', fontsize=18)
+    
+    def power_spectra_full_sky(self):
+        '''
+        full-sky EE/BB power spectra
+        '''
+        
+        
         
         pass
     
     
+    
+    def cl_sphere(self, nside, msk_apo, map_QU, lmax, nlbins, w22_file = 'w22_2048_full_sky.fits'):
+        '''
+        nside:
+        msk_apo: apodized mask
+        nlbins: ell-number in each bin
+        '''
+
+        binning = nmt.NmtBin(nside=nside, nlb=nlbins, lmax=lmax, is_Dell=False)
+        f2 = nmt.NmtField(msk_apo, [map_QU[0], map_QU[1]], purify_b=True)
+
+        w22 = nmt.NmtWorkspace()
+        try:
+            w22.read_from(w22_file)
+            print('weights loaded from %s' % w22_file)
+        except:
+            w22.compute_coupling_matrix(f2, f2, binning)
+            w22.write_to(w22_file)
+            print('weights writing to disk')
+
+        cl22 = nmt.compute_full_master(f2, f2, binning, workspace = w22)
+
+        return binning.get_effective_ells(), cl22
