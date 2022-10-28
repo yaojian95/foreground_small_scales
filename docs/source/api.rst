@@ -1,7 +1,11 @@
 API
 ===
 
-.. autosummary::
-   :toctree: generated
+pipeline
+--------
 
-   pipeline_evaluation_NN
+.. automodule:: pipeline_evaluation_NN
+   :members:
+
+
+   
