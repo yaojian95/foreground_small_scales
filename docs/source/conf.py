@@ -22,6 +22,8 @@ extensions = [
     'sphinx.ext.intersphinx',
 ]
 
+autodoc_mock_imports = ['numpy', 'matplotlib', 'pymaster', 'healpy', 'forse']
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'sphinx': ('https://www.sphinx-doc.org/en/master/', None),
